@@ -93,15 +93,31 @@ func TestRelayInfoGetClientModelName(t *testing.T) {
 	var nilInfo *RelayInfo
 	assert.Equal(t, "", nilInfo.GetClientModelName())
 
-	infoWithOrigin := &RelayInfo{
+	infoCommonUser := &RelayInfo{
 		OriginModelName:   "public-gemini",
 		UpstreamModelName: "gemini-2.5-pro",
+		UserRole:          common.RoleCommonUser,
 	}
-	assert.Equal(t, "public-gemini", infoWithOrigin.GetClientModelName())
+	assert.Equal(t, "public-gemini", infoCommonUser.GetClientModelName())
+
+	infoAdmin := &RelayInfo{
+		OriginModelName:   "public-gemini",
+		UpstreamModelName: "gemini-2.5-pro",
+		UserRole:          common.RoleAdminUser,
+	}
+	assert.Equal(t, "gemini-2.5-pro", infoAdmin.GetClientModelName())
+
+	infoRoot := &RelayInfo{
+		OriginModelName:   "public-gemini",
+		UpstreamModelName: "gemini-2.5-pro",
+		UserRole:          common.RoleRootUser,
+	}
+	assert.Equal(t, "gemini-2.5-pro", infoRoot.GetClientModelName())
 
 	infoFallback := &RelayInfo{
 		OriginModelName:   "",
 		UpstreamModelName: "gemini-2.5-pro",
+		UserRole:          common.RoleCommonUser,
 	}
 	assert.Equal(t, "gemini-2.5-pro", infoFallback.GetClientModelName())
 }

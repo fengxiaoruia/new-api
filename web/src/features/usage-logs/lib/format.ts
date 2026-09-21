@@ -242,17 +242,20 @@ export function formatModelName(log: UsageLog): {
   responseModel?: LogOtherData['response_model']
 } {
   const other = parseLogOther(log.other)
+  const upstreamModel =
+    other?.admin_info?.upstream_model_name || other?.upstream_model_name
   const isMapped = !!(
-    other?.is_model_mapped &&
-    other?.upstream_model_name &&
-    other.upstream_model_name !== ''
+    (other?.admin_info?.is_model_mapped ?? other?.is_model_mapped) &&
+    upstreamModel &&
+    upstreamModel !== ''
   )
 
   return {
     name: log.model_name,
     isMapped,
-    actualModel: isMapped ? other.upstream_model_name : undefined,
-    responseModel: other?.response_model,
+    actualModel: isMapped ? upstreamModel : undefined,
+    responseModel:
+      other?.admin_info?.response_model || other?.response_model,
   }
 }
 

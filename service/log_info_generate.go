@@ -113,7 +113,7 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 		other.SetPublic("reasoning_effort", relayInfo.ReasoningEffort)
 	}
 	if relayInfo.IsModelMapped {
-		other.SetPublic("is_model_mapped", true)
+		other.SetAdmin("is_model_mapped", true)
 		other.SetAdmin("upstream_model_name", relayInfo.UpstreamModelName)
 	}
 

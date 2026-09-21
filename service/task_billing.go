@@ -62,7 +62,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo, task *model
 		other.SetPublic("user_group_ratio", info.PriceData.GroupRatioInfo.GroupSpecialRatio)
 	}
 	if info.IsModelMapped {
-		other.SetPublic("is_model_mapped", true)
+		other.SetAdmin("is_model_mapped", true)
 		other.SetAdmin("upstream_model_name", info.UpstreamModelName)
 	}
 	if snap := info.TieredBillingSnapshot; snap != nil {
@@ -174,7 +174,7 @@ func taskBillingOther(task *model.Task) *model.LogOther {
 	}
 	props := task.Properties
 	if props.UpstreamModelName != "" && props.UpstreamModelName != props.OriginModelName {
-		other.SetPublic("is_model_mapped", true)
+		other.SetAdmin("is_model_mapped", true)
 		other.SetAdmin("upstream_model_name", props.UpstreamModelName)
 	}
 	appendTaskLogInfo(task, other)
