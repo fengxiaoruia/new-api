@@ -89,6 +89,23 @@ func TestRelayInfoMetaTypedNilReceiver(t *testing.T) {
 	assert.NotNil(t, firstOptions.PreserveEffortTail)
 }
 
+func TestRelayInfoGetClientModelName(t *testing.T) {
+	var nilInfo *RelayInfo
+	assert.Equal(t, "", nilInfo.GetClientModelName())
+
+	infoWithOrigin := &RelayInfo{
+		OriginModelName:   "public-gemini",
+		UpstreamModelName: "gemini-2.5-pro",
+	}
+	assert.Equal(t, "public-gemini", infoWithOrigin.GetClientModelName())
+
+	infoFallback := &RelayInfo{
+		OriginModelName:   "",
+		UpstreamModelName: "gemini-2.5-pro",
+	}
+	assert.Equal(t, "gemini-2.5-pro", infoFallback.GetClientModelName())
+}
+
 func TestGenRelayInfoCapturesRequestReasoningEffort(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {

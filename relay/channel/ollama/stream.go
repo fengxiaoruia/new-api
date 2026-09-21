@@ -149,7 +149,7 @@ func ollamaStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	helper.SetEventStreamHeaders(c)
 	scanner := helper.NewStreamScanner(resp.Body)
 	usage := &dto.Usage{}
-	var model = info.UpstreamModelName
+	var model = info.GetClientModelName()
 	var responseId = common.GetUUID()
 	var created = time.Now().Unix()
 	var toolCallIndex int
@@ -170,19 +170,21 @@ func ollamaStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			return usage, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
 		if chunk.Model != "" {
-			model = chunk.Model
+			if chunk.Model != "" {
+				info.ObserveResponseModel(chunk.Model)
+			}
 		}
 		created = toUnix(chunk.CreatedAt)
 
 		if !chunk.Done {
-			delta, _ := buildOllamaStreamDelta(&chunk, responseId, created, model, &toolCallIndex)
+			delta, _ := buildOllamaStreamDelta(&chunk, responseId, created, info.GetClientModelName(), &toolCallIndex)
 			if data, err := common.Marshal(delta); err == nil {
 				_ = helper.StringData(c, string(data))
 			}
 			continue
 		}
 		// done frame
-		if delta, hasPayload := buildOllamaStreamDelta(&chunk, responseId, created, model, &toolCallIndex); hasPayload {
+		if delta, hasPayload := buildOllamaStreamDelta(&chunk, responseId, created, info.GetClientModelName(), &toolCallIndex); hasPayload {
 			if data, err := common.Marshal(delta); err == nil {
 				_ = helper.StringData(c, string(data))
 			}
@@ -199,13 +201,13 @@ func ollamaStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			finishReason = constant.FinishReasonToolCalls
 		}
 		// emit stop delta
-		if stop := helper.GenerateStopResponse(responseId, created, model, finishReason); stop != nil {
+		if stop := helper.GenerateStopResponse(responseId, created, info.GetClientModelName(), finishReason); stop != nil {
 			if data, err := common.Marshal(stop); err == nil {
 				_ = helper.StringData(c, string(data))
 			}
 		}
 		// emit usage frame
-		if final := helper.GenerateFinalUsageResponse(responseId, created, model, *usage); final != nil {
+		if final := helper.GenerateFinalUsageResponse(responseId, created, info.GetClientModelName(), *usage); final != nil {
 			if data, err := common.Marshal(final); err == nil {
 				_ = helper.StringData(c, string(data))
 			}
@@ -311,9 +313,8 @@ func ollamaChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		}
 	}
 
-	model := lastChunk.Model
-	if model == "" {
-		model = info.UpstreamModelName
+	if lastChunk.Model != "" {
+		info.ObserveResponseModel(lastChunk.Model)
 	}
 	created := toUnix(lastChunk.CreatedAt)
 	usage := &dto.Usage{PromptTokens: lastChunk.PromptEvalCount, CompletionTokens: lastChunk.EvalCount, TotalTokens: lastChunk.PromptEvalCount + lastChunk.EvalCount}
@@ -337,7 +338,7 @@ func ollamaChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	}
 	full := dto.OpenAITextResponse{
 		Id:      common.GetUUID(),
-		Model:   model,
+		Model:   info.GetClientModelName(),
 		Object:  "chat.completion",
 		Created: created,
 		Choices: []dto.OpenAITextResponseChoice{{

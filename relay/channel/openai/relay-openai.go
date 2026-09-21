@@ -32,6 +32,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	if err := common.UnmarshalJsonStr(data, &lastStreamResponse); err != nil {
 		return err
 	}
+	lastStreamResponse.Model = info.GetClientModelName()
 
 	if !thinkToContent {
 		return helper.ObjectData(c, lastStreamResponse)
@@ -334,6 +335,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			responseBody, _ = common.Marshal(bodyMap)
 		}
 		if forceFormat {
+			simpleResponse.Model = info.GetClientModelName()
 			responseBody, err = common.Marshal(simpleResponse)
 			if err != nil {
 				return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
@@ -363,6 +365,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		responseBody = geminiRespStr
 	}
 
+	responseBody = common.RewriteClientModelJSON(responseBody, info.GetClientModelName())
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	return &simpleResponse.Usage, nil

@@ -14,6 +14,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type clientModelProvider interface {
+	GetClientModelName() string
+}
+
+func rewriteClientModel(c *gin.Context, data []byte) []byte {
+	if c == nil {
+		return data
+	}
+	value, exists := c.Get(common.RelayInfoContextKey)
+	if !exists {
+		return data
+	}
+	provider, ok := value.(clientModelProvider)
+	if !ok {
+		return data
+	}
+	return common.RewriteClientModelJSON(data, provider.GetClientModelName())
+}
+
 func FlushWriter(c *gin.Context) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -67,6 +86,7 @@ func ClaudeData(c *gin.Context, resp dto.ClaudeResponse) error {
 	if err != nil {
 		common.SysError("error marshalling stream response: " + err.Error())
 	} else {
+		jsonData = rewriteClientModel(c, jsonData)
 		c.Render(-1, common.CustomEvent{Data: fmt.Sprintf("event: %s\n", resp.Type)})
 		c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonData)})
 	}
@@ -79,6 +99,7 @@ func ClaudeChunkData(c *gin.Context, resp dto.ClaudeResponse, data string) {
 		return
 	}
 
+	data = string(rewriteClientModel(c, []byte(data)))
 	c.Render(-1, common.CustomEvent{Data: fmt.Sprintf("event: %s\n", resp.Type)})
 	c.Render(-1, common.CustomEvent{Data: fmt.Sprintf("data: %s\n", data)})
 	_ = FlushWriter(c)
@@ -89,6 +110,7 @@ func ResponseChunkData(c *gin.Context, resp dto.ResponsesStreamResponse, data st
 		return fmt.Errorf("request context done: %w", c.Request.Context().Err())
 	}
 
+	data = string(rewriteClientModel(c, []byte(data)))
 	c.Render(-1, common.CustomEvent{Data: fmt.Sprintf("event: %s\n", resp.Type)})
 	c.Render(-1, common.CustomEvent{Data: fmt.Sprintf("data: %s", data)})
 	return FlushWriter(c)
@@ -103,6 +125,7 @@ func StringData(c *gin.Context, str string) error {
 		return fmt.Errorf("request context done: %w", c.Request.Context().Err())
 	}
 
+	str = string(rewriteClientModel(c, []byte(str)))
 	c.Render(-1, common.CustomEvent{Data: "data: " + str})
 	return FlushWriter(c)
 }
@@ -143,6 +166,7 @@ func WssString(c *gin.Context, ws *websocket.Conn, str string) error {
 		return errors.New("websocket connection is nil")
 	}
 	//common.LogInfo(c, fmt.Sprintf("sending message: %s", str))
+	str = string(rewriteClientModel(c, []byte(str)))
 	return ws.WriteMessage(1, []byte(str))
 }
 
@@ -151,6 +175,7 @@ func WssObject(c *gin.Context, ws *websocket.Conn, object any) error {
 	if err != nil {
 		return fmt.Errorf("error marshalling object: %w", err)
 	}
+	jsonData = rewriteClientModel(c, jsonData)
 	if ws == nil {
 		logger.LogError(c, "websocket connection is nil")
 		return errors.New("websocket connection is nil")

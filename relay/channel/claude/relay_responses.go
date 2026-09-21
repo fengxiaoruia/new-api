@@ -21,7 +21,7 @@ func ClaudeResponsesStreamHandler(c *gin.Context, resp *http.Response, info *rel
 	created := common.GetTimestamp()
 	state, err := relayconvert.NewResponseStreamState(types.RelayFormatClaude, types.RelayFormatOpenAIResponses, relayconvert.ResponseStreamOptions{
 		ID:                 responseID,
-		Model:              info.UpstreamModelName,
+		Model:              info.GetClientModelName(),
 		Created:            created,
 		EmitSequenceNumber: true,
 	})
@@ -33,7 +33,7 @@ func ClaudeResponsesStreamHandler(c *gin.Context, resp *http.Response, info *rel
 	claudeInfo := &ClaudeResponseInfo{
 		ResponseId:   responseID,
 		Created:      created,
-		Model:        info.UpstreamModelName,
+		Model:        info.GetClientModelName(),
 		ResponseText: strings.Builder{},
 		Usage:        &dto.Usage{},
 	}

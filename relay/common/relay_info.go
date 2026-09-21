@@ -626,6 +626,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 			estimatePromptTokens: common.GetContextKeyInt(c, constant.ContextKeyEstimatedTokens),
 		},
 	}
+	c.Set(common.RelayInfoContextKey, info)
 
 	if info.RelayMode == relayconstant.RelayModeUnknown {
 		info.RelayMode = c.GetInt("relay_mode")
@@ -827,6 +828,19 @@ func (info *RelayInfo) GetOriginModelName() string {
 		return ""
 	}
 	return info.OriginModelName
+}
+
+// GetClientModelName returns the model name that may be exposed to the
+// downstream client. The upstream name remains separate for routing, billing,
+// capability detection, and administrator diagnostics.
+func (info *RelayInfo) GetClientModelName() string {
+	if info == nil {
+		return ""
+	}
+	if strings.TrimSpace(info.OriginModelName) != "" {
+		return info.OriginModelName
+	}
+	return info.UpstreamModelName
 }
 
 // GetBillingModelName returns the effective pricing identity without changing

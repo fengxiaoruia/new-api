@@ -13,6 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type clientModelProvider interface {
+	GetClientModelName() string
+}
+
 func CloseResponseBodyGracefully(httpResponse *http.Response) {
 	if httpResponse == nil || httpResponse.Body == nil {
 		return
@@ -44,6 +48,12 @@ func ShouldCopyUpstreamHeader(c *gin.Context, k string, v []string) bool {
 func IOCopyBytesGracefully(c *gin.Context, src *http.Response, data []byte) {
 	if c.Writer == nil {
 		return
+	}
+
+	if value, exists := c.Get(common.RelayInfoContextKey); exists {
+		if provider, ok := value.(clientModelProvider); ok {
+			data = common.RewriteClientModelJSON(data, provider.GetClientModelName())
+		}
 	}
 
 	body := io.NopCloser(bytes.NewBuffer(data))

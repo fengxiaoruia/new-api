@@ -38,6 +38,7 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 
 	info.ObserveResponseModel(responsesResponse.Model)
 	responseBody = rewriteSGLangResponsesCreatedAt(info, responseBody, "created_at", responsesResponse.CreatedAt)
+	responseBody = common.RewriteClientModelJSON(responseBody, info.GetClientModelName())
 
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
@@ -91,6 +92,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		if streamResponse.Response != nil {
 			data = string(rewriteSGLangResponsesCreatedAt(info, []byte(data), "response.created_at", streamResponse.Response.CreatedAt))
 		}
+		data = string(common.RewriteClientModelJSON(common.StringToByteSlice(data), info.GetClientModelName()))
 		sendResponsesStreamData(c, streamResponse, data)
 		accumulator.Observe(&streamResponse)
 	})

@@ -47,6 +47,26 @@ func TestJsonRawMessageToString(t *testing.T) {
 	}
 }
 
+func TestRewriteClientModelJSON(t *testing.T) {
+	input := []byte(`{
+		"model":"upstream-model",
+		"modelVersion":"upstream-version",
+		"response":{"model":"response-upstream"},
+		"message":{"model":"message-upstream"},
+		"prompt":"keep upstream-model here",
+		"arguments":{"model":"keep-this-too"}
+	}`)
+
+	output := RewriteClientModelJSON(input, "public-model")
+
+	assert.Equal(t, "public-model", gjson.GetBytes(output, "model").String())
+	assert.Equal(t, "public-model", gjson.GetBytes(output, "modelVersion").String())
+	assert.Equal(t, "public-model", gjson.GetBytes(output, "response.model").String())
+	assert.Equal(t, "public-model", gjson.GetBytes(output, "message.model").String())
+	assert.Equal(t, "keep upstream-model here", gjson.GetBytes(output, "prompt").String())
+	assert.Equal(t, "keep-this-too", gjson.GetBytes(output, "arguments.model").String())
+}
+
 func TestDecodeJsonWithValidation(t *testing.T) {
 	type request struct {
 		Code string `json:"code" binding:"required"`

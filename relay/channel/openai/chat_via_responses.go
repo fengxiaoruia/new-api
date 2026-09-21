@@ -42,6 +42,7 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	}
 
 	info.ObserveResponseModel(responsesResp.Model)
+	responsesResp.Model = info.GetClientModelName()
 	responseValue, usage, err := convertResponsesResponseForClient(c, info, &responsesResp)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
@@ -128,10 +129,11 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		finalResponse = &dto.OpenAIResponsesResponse{
 			ID:        helper.GetResponseID(c),
 			CreatedAt: dto.IntValue(time.Now().Unix()),
-			Model:     info.UpstreamModelName,
+			Model:     info.GetClientModelName(),
 			Status:    []byte(`"completed"`),
 		}
 	}
+	finalResponse.Model = info.GetClientModelName()
 	accumulator.SupplementResponseOutput(finalResponse)
 
 	responseValue, usage, err := convertResponsesResponseForClient(c, info, finalResponse)
@@ -180,7 +182,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	createAt := time.Now().Unix()
 	state, err := relayconvert.NewResponseStreamState(types.RelayFormatOpenAIResponses, info.RelayFormat, relayconvert.ResponseStreamOptions{
 		ID:      responseId,
-		Model:   info.UpstreamModelName,
+		Model:   info.GetClientModelName(),
 		Created: createAt,
 	})
 	if err != nil {
@@ -317,7 +319,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		}
 	}
 	if info.RelayFormat == types.RelayFormatOpenAI && info.ShouldIncludeUsage && usage != nil {
-		if err := helper.ObjectData(c, helper.GenerateFinalUsageResponse(responseId, createAt, info.UpstreamModelName, *usage)); err != nil {
+		if err := helper.ObjectData(c, helper.GenerateFinalUsageResponse(responseId, createAt, info.GetClientModelName(), *usage)); err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 		}
 	}
