@@ -34,7 +34,36 @@ function parseStatusCodeMappingTarget(rawValue: unknown): number | null {
     const code = Number.parseInt(normalized, 10)
     return code >= 100 && code <= 599 ? code : null
   }
+  if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    const obj = rawValue as Record<string, unknown>
+    if ('code' in obj && obj.code !== undefined && obj.code !== null && obj.code !== '') {
+      return parseStatusCodeMappingTarget(obj.code)
+    }
+  }
   return null
+}
+
+export function isValidStatusCodeTarget(rawValue: unknown): boolean {
+  if (typeof rawValue === 'number') {
+    return Number.isInteger(rawValue) && rawValue >= 100 && rawValue <= 599
+  }
+  if (typeof rawValue === 'string') {
+    return rawValue.trim().length > 0
+  }
+  if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    const obj = rawValue as Record<string, unknown>
+    const hasCode = 'code' in obj && obj.code !== undefined && obj.code !== null && obj.code !== ''
+    const hasMessage = 'message' in obj && obj.message !== undefined && obj.message !== null
+    if (!hasCode && !hasMessage) return false
+    if (hasCode && parseStatusCodeMappingTarget(obj.code) === null) {
+      return false
+    }
+    if (hasMessage && typeof obj.message !== 'string') {
+      return false
+    }
+    return true
+  }
+  return false
 }
 
 export function collectInvalidStatusCodeEntries(
@@ -54,9 +83,10 @@ export function collectInvalidStatusCodeEntries(
   const invalid: string[] = []
   for (const [rawKey, rawValue] of Object.entries(parsed)) {
     const fromCode = parseStatusCodeKey(rawKey)
-    const toCode = parseStatusCodeMappingTarget(rawValue)
-    if (fromCode === null || toCode === null) {
-      invalid.push(`${rawKey} → ${rawValue}`)
+    if (fromCode === null || !isValidStatusCodeTarget(rawValue)) {
+      const displayVal =
+        typeof rawValue === 'object' ? JSON.stringify(rawValue) : String(rawValue)
+      invalid.push(`${rawKey} -> ${displayVal}`)
     }
   }
   return invalid

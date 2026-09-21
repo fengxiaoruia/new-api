@@ -41,6 +41,7 @@ import {
   validateAdvancedCustomConfig,
 } from './advanced-custom'
 import { readTaskExtendPluginKeys } from './channel-plugin-extensions'
+import { isValidStatusCodeTarget } from './status-code-risk-guard'
 
 // ============================================================================
 // Form Validation Schema
@@ -145,15 +146,10 @@ function isOptionalStatusCodeMapping(value: string | undefined): boolean {
     if (!isJsonObjectValue(parsed)) return false
     return Object.entries(parsed).every(([from, to]) => {
       const fromCode = Number(from)
-      const toCode = Number(to)
-      return (
-        Number.isInteger(fromCode) &&
-        Number.isInteger(toCode) &&
-        fromCode >= 100 &&
-        fromCode <= 599 &&
-        toCode >= 100 &&
-        toCode <= 599
-      )
+      if (!Number.isInteger(fromCode) || fromCode < 100 || fromCode > 599) {
+        return false
+      }
+      return isValidStatusCodeTarget(to)
     })
   } catch {
     return false
@@ -229,7 +225,7 @@ export const channelFormSchema = z
       .optional()
       .refine(
         isOptionalStatusCodeMapping,
-        'Status code mapping must use valid HTTP status codes'
+        'Status code mapping must use valid HTTP status codes or message configs'
       ),
     tag: z.string().optional(),
     remark: z

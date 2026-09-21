@@ -23,6 +23,7 @@ func TestResetStatusCode(t *testing.T) {
 		statusCode       int
 		statusCodeConfig string
 		expectedCode     int
+		expectedMessage  string
 	}{
 		{
 			name:             "map string value",
@@ -41,12 +42,34 @@ func TestResetStatusCode(t *testing.T) {
 			statusCode:       429,
 			statusCodeConfig: `{"429":"bad-code"}`,
 			expectedCode:     429,
+			expectedMessage:  "bad-code",
 		},
 		{
 			name:             "skip status code 200",
 			statusCode:       200,
 			statusCodeConfig: `{"200":503}`,
 			expectedCode:     200,
+		},
+		{
+			name:             "map object with code and message",
+			statusCode:       429,
+			statusCodeConfig: `{"429":{"code":429,"message":"We're currently experiencing high demand, which may cause temporary errors."}}`,
+			expectedCode:     429,
+			expectedMessage:  "We're currently experiencing high demand, which may cause temporary errors.",
+		},
+		{
+			name:             "map object with new code and message",
+			statusCode:       429,
+			statusCodeConfig: `{"429":{"code":503,"message":"Service Unavailable"}}`,
+			expectedCode:     503,
+			expectedMessage:  "Service Unavailable",
+		},
+		{
+			name:             "map object with message only",
+			statusCode:       429,
+			statusCodeConfig: `{"429":{"message":"Server is busy"}}`,
+			expectedCode:     429,
+			expectedMessage:  "Server is busy",
 		},
 	}
 
@@ -56,9 +79,16 @@ func TestResetStatusCode(t *testing.T) {
 
 			newAPIError := &types.NewAPIError{
 				StatusCode: tc.statusCode,
+				RelayError: types.OpenAIError{Message: "original error"},
 			}
 			ResetStatusCode(newAPIError, tc.statusCodeConfig)
 			require.Equal(t, tc.expectedCode, newAPIError.StatusCode)
+			if tc.expectedMessage != "" {
+				require.Equal(t, tc.expectedMessage, newAPIError.Error())
+				oaiErr, ok := newAPIError.RelayError.(types.OpenAIError)
+				require.True(t, ok)
+				require.Equal(t, tc.expectedMessage, oaiErr.Message)
+			}
 		})
 	}
 }

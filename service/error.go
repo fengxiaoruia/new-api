@@ -153,12 +153,68 @@ func ResetStatusCode(newApiErr *types.NewAPIError, statusCodeMappingStr string) 
 		return
 	}
 	codeStr := strconv.Itoa(newApiErr.StatusCode)
-	if value, ok := statusCodeMapping[codeStr]; ok {
-		intCode, ok := parseStatusCodeMappingValue(value)
-		if !ok {
-			return
+	value, ok := statusCodeMapping[codeStr]
+	if !ok {
+		return
+	}
+
+	targetCode, targetMessage, matched := parseStatusCodeMappingRule(value)
+	if !matched {
+		return
+	}
+
+	if targetCode >= 100 && targetCode <= 599 {
+		newApiErr.StatusCode = targetCode
+	}
+
+	if targetMessage != "" {
+		newApiErr.SetMessage(targetMessage)
+		if oaiErr, ok := newApiErr.RelayError.(types.OpenAIError); ok {
+			oaiErr.Message = targetMessage
+			newApiErr.RelayError = oaiErr
+		} else if claudeErr, ok := newApiErr.RelayError.(types.ClaudeError); ok {
+			claudeErr.Message = targetMessage
+			newApiErr.RelayError = claudeErr
+		} else {
+			newApiErr.RelayError = types.OpenAIError{
+				Message: targetMessage,
+				Type:    string(newApiErr.GetErrorType()),
+				Code:    newApiErr.GetErrorCode(),
+			}
 		}
-		newApiErr.StatusCode = intCode
+	}
+}
+
+func parseStatusCodeMappingRule(value any) (targetCode int, targetMessage string, matched bool) {
+	switch v := value.(type) {
+	case map[string]any:
+		if codeVal, ok := v["code"]; ok {
+			if code, ok := parseStatusCodeMappingValue(codeVal); ok && code >= 100 && code <= 599 {
+				targetCode = code
+				matched = true
+			}
+		}
+		if msgVal, ok := v["message"]; ok {
+			if msgStr, ok := msgVal.(string); ok && strings.TrimSpace(msgStr) != "" {
+				targetMessage = strings.TrimSpace(msgStr)
+				matched = true
+			}
+		}
+		return targetCode, targetMessage, matched
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return 0, "", false
+		}
+		if code, ok := parseStatusCodeMappingValue(trimmed); ok && code >= 100 && code <= 599 {
+			return code, "", true
+		}
+		return 0, trimmed, true
+	default:
+		if code, ok := parseStatusCodeMappingValue(v); ok && code >= 100 && code <= 599 {
+			return code, "", true
+		}
+		return 0, "", false
 	}
 }
 

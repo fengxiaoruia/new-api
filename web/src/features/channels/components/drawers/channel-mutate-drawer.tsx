@@ -2645,7 +2645,7 @@ export function ChannelMutateDrawer({
             <div className='space-y-1'>
               <FormLabel>{t('Status Code Mapping')}</FormLabel>
               <FormDescription>
-                {t('Map upstream status codes to different codes')}
+                {t('Map upstream status codes to different codes or custom error messages')}
               </FormDescription>
             </div>
             <FormControl>
@@ -2653,13 +2653,19 @@ export function ChannelMutateDrawer({
                 value={field.value || ''}
                 onChange={field.onChange}
                 disabled={isSubmitting}
-                keyPlaceholder='400'
-                valuePlaceholder='500'
+                keyPlaceholder='429'
+                valuePlaceholder='{"code": 429, "message": "Server is busy"}'
                 keyLabel='Original Code'
-                valueLabel='Mapped Code'
+                valueLabel='Mapped Code or Config'
                 emptyMessage={t('No status code mappings configured.')}
-                template={{ '400': '500', '429': '503' }}
-                valueType='string'
+                template={{
+                  '429': {
+                    code: 429,
+                    message: "We're currently experiencing high demand, which may cause temporary errors.",
+                  },
+                  '400': 500,
+                }}
+                valueType='any'
               />
             </FormControl>
             <FormMessage />
