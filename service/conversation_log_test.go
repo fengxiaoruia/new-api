@@ -16,10 +16,11 @@ func TestAppendConversationAdminInfoOpenAI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(nil)
 
+	alice := "alice"
 	req := &dto.GeneralOpenAIRequest{
 		Messages: []dto.Message{
 			{Role: "system", Content: "You are a helpful assistant."},
-			{Role: "user", Content: "Explain quantum computing."},
+			{Role: "user", Content: "Explain quantum computing.", Name: &alice},
 		},
 	}
 
@@ -41,8 +42,10 @@ func TestAppendConversationAdminInfoOpenAI(t *testing.T) {
 	require.Len(t, detail.Messages, 2)
 	assert.Equal(t, "system", detail.Messages[0].Role)
 	assert.Equal(t, "You are a helpful assistant.", detail.Messages[0].Content)
+	assert.Equal(t, "", detail.Messages[0].Name)
 	assert.Equal(t, "user", detail.Messages[1].Role)
 	assert.Equal(t, "Explain quantum computing.", detail.Messages[1].Content)
+	assert.Equal(t, "alice", detail.Messages[1].Name)
 
 	require.NotNil(t, detail.Response)
 	assert.Equal(t, "assistant", detail.Response.Role)

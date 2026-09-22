@@ -405,10 +405,14 @@ func appendConversationAdminInfo(ctx *gin.Context, relayInfo *relaycommon.RelayI
 					if len(messages) >= maxConversationMessages {
 						break
 					}
+					var name string
+					if m.Name != nil {
+						name = *m.Name
+					}
 					messages = append(messages, model.LogChatMessage{
 						Role:    m.Role,
 						Content: truncateConversationText(m.StringContent()),
-						Name:    m.Name,
+						Name:    name,
 					})
 				}
 				if len(messages) == 0 && req.Prompt != nil {
