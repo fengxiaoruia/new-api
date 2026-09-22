@@ -28,3 +28,7 @@ func ResponsesFinishReasonFromStatus(resp *dto.OpenAIResponsesResponse) (string,
 func ExtractOutputTextFromResponses(resp *dto.OpenAIResponsesResponse) string {
 	return relayconvert.ExtractOutputTextFromResponses(resp)
 }
+
+func ExtractReasoningTextFromResponses(resp *dto.OpenAIResponsesResponse) string {
+	return relayconvert.ExtractReasoningTextFromResponses(resp)
+}

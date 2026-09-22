@@ -37,6 +37,12 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	}
 
 	info.ObserveResponseModel(responsesResponse.Model)
+	if outText := service.ExtractOutputTextFromResponses(&responsesResponse); outText != "" {
+		info.AppendResponseContent(outText)
+	}
+	if reasoningText := service.ExtractReasoningTextFromResponses(&responsesResponse); reasoningText != "" {
+		info.AppendResponseReasoning(reasoningText)
+	}
 	responseBody = rewriteSGLangResponsesCreatedAt(info, responseBody, "created_at", responsesResponse.CreatedAt)
 	responseBody = common.RewriteClientModelJSON(responseBody, info.GetClientModelName())
 
@@ -95,6 +101,25 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		data = string(common.RewriteClientModelJSON(common.StringToByteSlice(data), info.GetClientModelName()))
 		sendResponsesStreamData(c, streamResponse, data)
 		accumulator.Observe(&streamResponse)
+		switch streamResponse.Type {
+		case "response.output_text.delta":
+			if streamResponse.Delta != "" {
+				info.AppendResponseContent(streamResponse.Delta)
+			}
+		case "response.reasoning_text.delta", "response.reasoning_summary_text.delta":
+			if streamResponse.Delta != "" {
+				info.AppendResponseReasoning(streamResponse.Delta)
+			}
+		case "response.completed", "response.done":
+			if streamResponse.Response != nil {
+				if info.GetResponseContent() == "" {
+					info.AppendResponseContent(service.ExtractOutputTextFromResponses(streamResponse.Response))
+				}
+				if info.GetResponseReasoning() == "" {
+					info.AppendResponseReasoning(service.ExtractReasoningTextFromResponses(streamResponse.Response))
+				}
+			}
+		}
 	})
 
 	common.SetContextKey(c, constant.ContextKeyResponseStreamStatus, info.StreamStatus)

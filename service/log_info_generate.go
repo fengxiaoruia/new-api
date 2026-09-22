@@ -390,6 +390,148 @@ func truncateConversationText(s string) string {
 	return s[:maxConversationTextLength] + "... (truncated)"
 }
 
+func extractResponsesRequestMessages(req *dto.OpenAIResponsesRequest) []model.LogChatMessage {
+	if req == nil {
+		return nil
+	}
+
+	var messages []model.LogChatMessage
+
+	// 1. Instructions (system prompt)
+	if len(req.Instructions) > 0 {
+		var instructions string
+		if err := common.Unmarshal(req.Instructions, &instructions); err == nil {
+			if strings.TrimSpace(instructions) != "" {
+				messages = append(messages, model.LogChatMessage{
+					Role:    "system",
+					Content: truncateConversationText(instructions),
+				})
+			}
+		} else {
+			raw := strings.Trim(strings.TrimSpace(string(req.Instructions)), "\"")
+			if raw != "" && raw != "null" {
+				messages = append(messages, model.LogChatMessage{
+					Role:    "system",
+					Content: truncateConversationText(raw),
+				})
+			}
+		}
+	}
+
+	if len(req.Input) == 0 {
+		return messages
+	}
+
+	// 2. Input as plain string: "hello"
+	var singleInput string
+	if err := common.Unmarshal(req.Input, &singleInput); err == nil {
+		if strings.TrimSpace(singleInput) != "" {
+			messages = append(messages, model.LogChatMessage{
+				Role:    "user",
+				Content: truncateConversationText(singleInput),
+			})
+		}
+		return messages
+	}
+
+	// 3. Input as array of items: [{"type":"message","role":"developer","content":[...]}, ...]
+	var items []map[string]any
+	if err := common.Unmarshal(req.Input, &items); err == nil {
+		for _, item := range items {
+			if len(messages) >= maxConversationMessages {
+				break
+			}
+			itemType, _ := item["type"].(string)
+			role, _ := item["role"].(string)
+
+			switch itemType {
+			case "function_call", "custom_tool_call":
+				name, _ := item["name"].(string)
+				args := ""
+				if a, ok := item["arguments"].(string); ok {
+					args = a
+				} else if a, ok := item["input"].(string); ok {
+					args = a
+				}
+				messages = append(messages, model.LogChatMessage{
+					Role:    "assistant",
+					Content: truncateConversationText(fmt.Sprintf("Call: %s(%s)", name, args)),
+				})
+				continue
+			case "function_call_output", "custom_tool_call_output":
+				outputStr := ""
+				if out, ok := item["output"].(string); ok {
+					outputStr = out
+				} else if item["output"] != nil {
+					raw, _ := common.Marshal(item["output"])
+					outputStr = string(raw)
+				}
+				messages = append(messages, model.LogChatMessage{
+					Role:    "tool",
+					Content: truncateConversationText(outputStr),
+				})
+				continue
+			}
+
+			if role == "" {
+				role = "user"
+			} else if role == "developer" {
+				role = "system"
+			}
+
+			var textBuilder strings.Builder
+			if rawContent, ok := item["content"]; ok {
+				switch c := rawContent.(type) {
+				case string:
+					textBuilder.WriteString(c)
+				case []any:
+					for _, part := range c {
+						if partMap, ok := part.(map[string]any); ok {
+							partType, _ := partMap["type"].(string)
+							if txt, ok := partMap["text"].(string); ok && txt != "" {
+								textBuilder.WriteString(txt)
+							} else if partType == "input_image" {
+								textBuilder.WriteString("[Image]")
+							} else if partType == "input_audio" {
+								textBuilder.WriteString("[Audio]")
+							}
+						}
+					}
+				case map[string]any:
+					if txt, ok := c["text"].(string); ok {
+						textBuilder.WriteString(txt)
+					}
+				}
+			}
+
+			content := textBuilder.String()
+			if content == "" && item["content"] != nil {
+				raw, _ := common.Marshal(item["content"])
+				content = string(raw)
+			}
+
+			if content != "" {
+				messages = append(messages, model.LogChatMessage{
+					Role:    role,
+					Content: truncateConversationText(content),
+				})
+			}
+		}
+		return messages
+	}
+
+	// 4. Fallback if not an array: treat raw input bytes as string
+	rawStr := strings.TrimSpace(string(req.Input))
+	if rawStr != "" && rawStr != "null" {
+		messages = append(messages, model.LogChatMessage{
+			Role:    "user",
+			Content: truncateConversationText(rawStr),
+		})
+	}
+
+	return messages
+}
+
 func appendConversationAdminInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other *model.LogOther) {
 	if other == nil || relayInfo == nil {
 		return
@@ -409,8 +551,14 @@ func appendConversationAdminInfo(ctx *gin.Context, relayInfo *relaycommon.RelayI
 					if m.Name != nil {
 						name = *m.Name
 					}
+					role := m.Role
+					if role == "" {
+						role = "user"
+					} else if role == "developer" {
+						role = "system"
+					}
 					messages = append(messages, model.LogChatMessage{
-						Role:    m.Role,
+						Role:    role,
 						Content: truncateConversationText(m.StringContent()),
 						Name:    name,
 					})
@@ -478,12 +626,14 @@ func appendConversationAdminInfo(ctx *gin.Context, relayInfo *relaycommon.RelayI
 				}
 			}
 		case *dto.OpenAIResponsesRequest:
-			if req != nil && req.Input != nil {
-				inputStr := fmt.Sprintf("%v", req.Input)
-				messages = append(messages, model.LogChatMessage{
-					Role:    "user",
-					Content: truncateConversationText(inputStr),
-				})
+			messages = extractResponsesRequestMessages(req)
+		case *dto.OpenAIResponsesCompactionRequest:
+			if req != nil {
+				proxyReq := &dto.OpenAIResponsesRequest{
+					Input:        req.Input,
+					Instructions: req.Instructions,
+				}
+				messages = extractResponsesRequestMessages(proxyReq)
 			}
 		}
 	}

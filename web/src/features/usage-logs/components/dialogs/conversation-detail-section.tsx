@@ -51,6 +51,7 @@ function getRoleBadgeProps(
     case 'model':
       return { label: t('Assistant'), variant: 'purple' }
     case 'system':
+    case 'developer':
       return { label: t('System'), variant: 'neutral' }
     case 'tool':
     case 'function':
@@ -93,7 +94,9 @@ function MessageItem({ message, index }: MessageItemProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const roleProps = getRoleBadgeProps(message.role, t)
   const isUser = message.role.toLowerCase() === 'user'
-  const isSystem = message.role.toLowerCase() === 'system'
+  const isSystem =
+    message.role.toLowerCase() === 'system' ||
+    message.role.toLowerCase() === 'developer'
   const isTool =
     message.role.toLowerCase() === 'tool' ||
     message.role.toLowerCase() === 'function'

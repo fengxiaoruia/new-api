@@ -1,4 +1,4 @@
-﻿package service
+package service
 
 import (
 	"strings"
@@ -85,6 +85,55 @@ func TestAppendConversationAdminInfoClaude(t *testing.T) {
 	assert.Equal(t, "Hello Claude", detail.Messages[1].Content)
 	require.NotNil(t, detail.Response)
 	assert.Equal(t, "Hello from Claude!", detail.Response.Content)
+}
+
+func TestAppendConversationAdminInfoResponsesAPI(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(nil)
+
+	inputJSON := `[
+		{
+			"type": "message",
+			"id": "msg_01",
+			"role": "developer",
+			"content": [{"type": "input_text", "text": "<app-context>\n# Codex desktop context"}]
+		},
+		{
+			"type": "message",
+			"id": "msg_02",
+			"role": "user",
+			"content": [{"type": "input_text", "text": "What is the capital of France?"}]
+		}
+	]`
+
+	req := &dto.OpenAIResponsesRequest{
+		Model: "gpt-4o",
+		Input: []byte(inputJSON),
+	}
+
+	relayInfo := &relaycommon.RelayInfo{
+		Request: req,
+	}
+	relayInfo.AppendResponseContent("Paris is the capital of France.")
+
+	other := model.NewLogOther()
+	appendConversationAdminInfo(ctx, relayInfo, other)
+
+	snapshot := other.Snapshot()
+	adminInfo, ok := snapshot["admin_info"].(map[string]any)
+	require.True(t, ok)
+
+	detail, ok := adminInfo["conversation"].(*model.LogChatDetail)
+	require.True(t, ok)
+	require.Len(t, detail.Messages, 2)
+	assert.Equal(t, "system", detail.Messages[0].Role)
+	assert.Equal(t, "<app-context>\n# Codex desktop context", detail.Messages[0].Content)
+	assert.Equal(t, "user", detail.Messages[1].Role)
+	assert.Equal(t, "What is the capital of France?", detail.Messages[1].Content)
+
+	require.NotNil(t, detail.Response)
+	assert.Equal(t, "assistant", detail.Response.Role)
+	assert.Equal(t, "Paris is the capital of France.", detail.Response.Content)
 }
 
 func TestAppendConversationAdminInfoTruncate(t *testing.T) {
