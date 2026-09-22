@@ -330,10 +330,10 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	info.ObserveResponseModel(claudeResponse.Model)
 	maybeMarkClaudeRefusal(c, info, claudeResponse.StopReason)
 	for _, content := range claudeResponse.Content {
-		if content.Type == "text" {
-			info.AppendResponseContent(content.Text)
-		} else if content.Type == "thinking" {
-			info.AppendResponseReasoning(content.Thinking)
+		if content.Type == "text" && content.Text != nil {
+			info.AppendResponseContent(*content.Text)
+		} else if content.Type == "thinking" && content.Thinking != nil {
+			info.AppendResponseReasoning(*content.Thinking)
 		}
 	}
 	if claudeInfo.Usage == nil {
