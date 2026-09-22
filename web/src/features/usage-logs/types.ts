@@ -114,6 +114,23 @@ export interface ToolSurchargeItem {
   price: number
 }
 
+export interface LogChatMessage {
+  role: string
+  content: string
+  name?: string
+}
+
+export interface LogChatResponse {
+  role?: string
+  content?: string
+  reasoning_content?: string
+}
+
+export interface LogConversation {
+  messages?: LogChatMessage[]
+  response?: LogChatResponse
+}
+
 export interface LogOtherData {
   admin_info?: {
     request_policy?: PolicyEvent[]
@@ -154,6 +171,7 @@ export interface LogOtherData {
       upstream_model: string
       returned_model: string
     }
+    conversation?: LogConversation
   }
   root_info?: {
     task_plugin?: TaskPluginRuntimeInfo

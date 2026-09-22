@@ -239,6 +239,9 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 }
 
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
+	if claudeInfo != nil && claudeInfo.ResponseText.Len() > 0 && info.GetResponseContent() == "" {
+		info.AppendResponseContent(claudeInfo.ResponseText.String())
+	}
 	if claudeInfo.Usage.PromptTokens == 0 {
 		//上游出错
 	}
@@ -326,6 +329,13 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	}
 	info.ObserveResponseModel(claudeResponse.Model)
 	maybeMarkClaudeRefusal(c, info, claudeResponse.StopReason)
+	for _, content := range claudeResponse.Content {
+		if content.Type == "text" {
+			info.AppendResponseContent(content.Text)
+		} else if content.Type == "thinking" {
+			info.AppendResponseReasoning(content.Thinking)
+		}
+	}
 	if claudeInfo.Usage == nil {
 		claudeInfo.Usage = &dto.Usage{}
 	}

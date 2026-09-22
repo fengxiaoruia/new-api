@@ -145,11 +145,24 @@ func processTokenData(info *relaycommon.RelayInfo, data string, responseTextBuil
 			return err
 		}
 		info.ObserveResponseModel(streamResponse.Model)
+		for _, choice := range streamResponse.Choices {
+			if content := choice.Delta.GetContentString(); content != "" {
+				info.AppendResponseContent(content)
+			}
+			if reasoning := choice.Delta.GetReasoningContent(); reasoning != "" {
+				info.AppendResponseReasoning(reasoning)
+			}
+		}
 		return ProcessStreamResponse(streamResponse, responseTextBuilder, toolCount)
 	case relayconstant.RelayModeCompletions:
 		var streamResponse dto.CompletionsStreamResponse
 		if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
 			return err
+		}
+		for _, choice := range streamResponse.Choices {
+			if choice.Text != "" {
+				info.AppendResponseContent(choice.Text)
+			}
 		}
 		processCompletionsStreamResponse(streamResponse, responseTextBuilder)
 	}

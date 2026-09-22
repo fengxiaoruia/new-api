@@ -206,6 +206,9 @@ type RelayInfo struct {
 	conversionDiagnosticKeys       map[conversionDiagnosticKey]struct{}
 	conversionDiagnosticsTruncated bool
 
+	CapturedResponseContent   strings.Builder
+	CapturedResponseReasoning strings.Builder
+
 	ThinkingContentInfo
 	TokenCountMeta
 	*ClaudeConvertInfo
@@ -213,6 +216,42 @@ type RelayInfo struct {
 	*ResponsesUsageInfo
 	*ChannelMeta
 	*TaskRelayInfo
+}
+
+func (info *RelayInfo) AppendResponseContent(content string) {
+	if info == nil || content == "" {
+		return
+	}
+	info.CapturedResponseContent.WriteString(content)
+}
+
+func (info *RelayInfo) AppendResponseReasoning(reasoning string) {
+	if info == nil || reasoning == "" {
+		return
+	}
+	info.CapturedResponseReasoning.WriteString(reasoning)
+}
+
+func (info *RelayInfo) GetResponseContent() string {
+	if info == nil {
+		return ""
+	}
+	return info.CapturedResponseContent.String()
+}
+
+func (info *RelayInfo) GetResponseReasoning() string {
+	if info == nil {
+		return ""
+	}
+	return info.CapturedResponseReasoning.String()
+}
+
+func (info *RelayInfo) ResetCapturedResponse() {
+	if info == nil {
+		return
+	}
+	info.CapturedResponseContent.Reset()
+	info.CapturedResponseReasoning.Reset()
 }
 
 // UpdateImageCount replaces the billable quantity without changing the frozen

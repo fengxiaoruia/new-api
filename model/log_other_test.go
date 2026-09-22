@@ -82,3 +82,39 @@ func TestLogOtherJSONStringDoesNotMutateReceiver(t *testing.T) {
 	require.Equal(t, before, after)
 	require.Equal(t, first, second)
 }
+
+func TestLogOtherConversationVisibility(t *testing.T) {
+	other := NewLogOther()
+	other.SetPublic("model_ratio", 2.0)
+	other.SetAdmin("conversation", &LogChatDetail{
+		Messages: []LogChatMessage{
+			{Role: "user", Content: "Hello world"},
+		},
+		Response: &LogChatResponse{
+			Role:             "assistant",
+			Content:          "Hi there!",
+			ReasoningContent: "Greeting received",
+		},
+	})
+
+	stored := other.JSONString()
+
+	// Ordinary users MUST NOT see admin_info or conversation
+	userView := formatLogOtherJSON(stored, logOtherVisibilityUser)
+	require.NotContains(t, userView, "conversation")
+	require.NotContains(t, userView, "Hello world")
+	require.NotContains(t, userView, "Hi there!")
+	require.JSONEq(t, `{"model_ratio": 2}`, userView)
+
+	// Admin and Root MUST see conversation under admin_info
+	adminView := formatLogOtherJSON(stored, logOtherVisibilityAdmin)
+	require.Contains(t, adminView, "admin_info")
+	require.Contains(t, adminView, "conversation")
+	require.Contains(t, adminView, "Hello world")
+	require.Contains(t, adminView, "Hi there!")
+	require.Contains(t, adminView, "Greeting received")
+
+	rootView := formatLogOtherJSON(stored, logOtherVisibilityRoot)
+	require.Contains(t, rootView, "conversation")
+	require.Contains(t, rootView, "Hello world")
+}

@@ -130,6 +130,7 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	appendBillingInfo(relayInfo, other)
 	appendParamOverrideInfo(relayInfo, other)
 	appendStreamStatus(relayInfo, other)
+	appendConversationAdminInfo(ctx, relayInfo, other)
 	return other
 }
 
@@ -374,5 +375,132 @@ func InjectTieredBillingInfo(other *model.LogOther, relayInfo *relaycommon.Relay
 		if snap.EstimatedFixedPrice != nil {
 			other.SetPublic("fixed_price", *snap.EstimatedFixedPrice)
 		}
+	}
+}
+
+const (
+	maxConversationMessages   = 100
+	maxConversationTextLength = 20000
+)
+
+func truncateConversationText(s string) string {
+	if len(s) <= maxConversationTextLength {
+		return s
+	}
+	return s[:maxConversationTextLength] + "... (truncated)"
+}
+
+func appendConversationAdminInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other *model.LogOther) {
+	if other == nil || relayInfo == nil {
+		return
+	}
+
+	var messages []model.LogChatMessage
+
+	if relayInfo.Request != nil {
+		switch req := relayInfo.Request.(type) {
+		case *dto.GeneralOpenAIRequest:
+			if req != nil {
+				for _, m := range req.Messages {
+					if len(messages) >= maxConversationMessages {
+						break
+					}
+					messages = append(messages, model.LogChatMessage{
+						Role:    m.Role,
+						Content: truncateConversationText(m.StringContent()),
+						Name:    m.Name,
+					})
+				}
+				if len(messages) == 0 && req.Prompt != nil {
+					promptStr := fmt.Sprintf("%v", req.Prompt)
+					messages = append(messages, model.LogChatMessage{
+						Role:    "user",
+						Content: truncateConversationText(promptStr),
+					})
+				}
+			}
+		case *dto.ClaudeRequest:
+			if req != nil {
+				if req.System != nil {
+					sysStr := req.GetStringSystem()
+					if sysStr != "" {
+						messages = append(messages, model.LogChatMessage{
+							Role:    "system",
+							Content: truncateConversationText(sysStr),
+						})
+					}
+				}
+				for _, m := range req.Messages {
+					if len(messages) >= maxConversationMessages {
+						break
+					}
+					messages = append(messages, model.LogChatMessage{
+						Role:    m.Role,
+						Content: truncateConversationText(m.GetStringContent()),
+					})
+				}
+			}
+		case *dto.GeminiChatRequest:
+			if req != nil {
+				if req.SystemInstructions != nil {
+					var sysText strings.Builder
+					for _, part := range req.SystemInstructions.Parts {
+						sysText.WriteString(part.Text)
+					}
+					sysStr := sysText.String()
+					if sysStr != "" {
+						messages = append(messages, model.LogChatMessage{
+							Role:    "system",
+							Content: truncateConversationText(sysStr),
+						})
+					}
+				}
+				for _, c := range req.Contents {
+					if len(messages) >= maxConversationMessages {
+						break
+					}
+					var contentText strings.Builder
+					for _, part := range c.Parts {
+						contentText.WriteString(part.Text)
+					}
+					role := c.Role
+					if role == "model" {
+						role = "assistant"
+					}
+					messages = append(messages, model.LogChatMessage{
+						Role:    role,
+						Content: truncateConversationText(contentText.String()),
+					})
+				}
+			}
+		case *dto.OpenAIResponsesRequest:
+			if req != nil && req.Input != nil {
+				inputStr := fmt.Sprintf("%v", req.Input)
+				messages = append(messages, model.LogChatMessage{
+					Role:    "user",
+					Content: truncateConversationText(inputStr),
+				})
+			}
+		}
+	}
+
+	respContent := relayInfo.GetResponseContent()
+	respReasoning := relayInfo.GetResponseReasoning()
+
+	var response *model.LogChatResponse
+	if respContent != "" || respReasoning != "" {
+		response = &model.LogChatResponse{
+			Role:             "assistant",
+			Content:          truncateConversationText(respContent),
+			ReasoningContent: truncateConversationText(respReasoning),
+		}
+	}
+
+	if len(messages) > 0 || response != nil {
+		chatDetail := &model.LogChatDetail{
+			Messages: messages,
+			Response: response,
+		}
+		other.SetAdmin("conversation", chatDetail)
 	}
 }

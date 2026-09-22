@@ -31,6 +31,24 @@ const (
 	logOtherVisibilityRoot
 )
 
+// LogChatMessage represents an individual message in a captured conversation.
+type LogChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	Name    string `json:"name,omitempty"`
+}
+
+type LogChatResponse struct {
+	Role             string `json:"role,omitempty"`
+	Content          string `json:"content"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
+}
+
+type LogChatDetail struct {
+	Messages []LogChatMessage `json:"messages,omitempty"`
+	Response *LogChatResponse `json:"response,omitempty"`
+}
+
 // LogOther separates usage-log metadata by the audience allowed to see it.
 // Its maps stay private so callers cannot accidentally place privileged fields
 // in the user-visible top level.

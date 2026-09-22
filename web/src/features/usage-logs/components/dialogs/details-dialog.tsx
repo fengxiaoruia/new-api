@@ -90,6 +90,7 @@ import {
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
 import { ResponseModelDetails } from '../model-badge'
 import { PluginAuthorLink } from '../plugin-author-link'
+import { ConversationDetailSection } from './conversation-detail-section'
 import { DetailRow, DetailSection } from './log-detail-layout'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
@@ -1193,6 +1194,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
               usageFacts={other.usage_facts}
             />
           </DetailSection>
+        )}
+
+        {/* Conversation details (admin and root only) */}
+        {(props.isAdmin || props.isRoot) && other?.admin_info?.conversation && (
+          <ConversationDetailSection
+            conversation={other.admin_info.conversation}
+          />
         )}
 
         {/* Admin billing mode indicator for non-consume */}
