@@ -68,7 +68,9 @@ func TestRelayInfoMetaTypedNilReceiver(t *testing.T) {
 		meta.SetReasoningEffort("high")
 		meta.IncrSendResponseCount()
 		meta.AppendRequestConversion(types.RelayFormatClaude)
+		meta.SetResponsesToolState(&convmeta.ResponsesToolState{})
 	})
+	assert.Nil(t, meta.ResponsesToolState())
 
 	firstState := meta.EnsureClaudeConvertInfo()
 	secondState := meta.EnsureClaudeConvertInfo()
@@ -120,6 +122,19 @@ func TestRelayInfoGetClientModelName(t *testing.T) {
 		UserRole:          common.RoleCommonUser,
 	}
 	assert.Equal(t, "gemini-2.5-pro", infoFallback.GetClientModelName())
+}
+
+func TestRelayInfoResponsesToolStateRoundTrip(t *testing.T) {
+	info := &RelayInfo{}
+	state := &convmeta.ResponsesToolState{CustomToolNames: map[string]struct{}{"exec": {}}}
+
+	info.SetResponsesToolState(state)
+	assert.Same(t, state, info.ResponsesToolState())
+	assert.True(t, convmeta.ResponsesToolStateOf(info).IsCustomTool("exec"))
+
+	info.SetResponsesToolState(nil)
+	assert.Nil(t, info.ResponsesToolState())
+	assert.False(t, convmeta.ResponsesToolStateOf(info).IsCustomTool("exec"))
 }
 
 func TestGenRelayInfoCapturesRequestReasoningEffort(t *testing.T) {
