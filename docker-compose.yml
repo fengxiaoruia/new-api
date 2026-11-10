@@ -59,6 +59,7 @@ services:
 #      - clickhouse  # Uncomment if using ClickHouse for LOG_SQL_DSN
     networks:
       - new-api-network
+      - cli-proxy_default
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
       interval: 30s
@@ -127,3 +128,5 @@ volumes:
 networks:
   new-api-network:
     driver: bridge
+  cli-proxy_default:
+    external: true
